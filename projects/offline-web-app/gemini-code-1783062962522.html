@@ -1,0 +1,2090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EXIF Border Generator</title>
+<meta name="description" content="Add beautiful borders with camera metadata to your photos">
+<meta name="theme-color" content="#ffffff">
+
+<!-- PWA Meta Tags -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EXIF Border">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📷</text></svg>">
+<!-- Replaced external CDN with a local script reference -->
+<script src="exif.js"></script>
+
+<style>
+/* Reset & Base */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  box-sizing: border-box;
+  cursor: default;
+  margin: 0;
+  padding: 0;
+}
+
+input, select, textarea, button {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  cursor: auto;
+  font-family: inherit;
+}
+
+:root {
+  /* Modern Light Theme Palette */
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --text: #111827;
+  --text-secondary: #6b7280;
+  --border: #e5e7eb;
+  --border-hover: #d1d5db;
+  --primary: #111827;
+  --primary-light: #f9fafb;
+  --accent: #6366f1; /* Indigo */
+  --accent-hover: #4f46e5;
+  --accent-light: #e0e7ff;
+  
+  /* Radii & Shadows */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+  --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.3);
+  
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  /* Sleek Dark Theme Palette */
+  --bg: #030712;
+  --surface: #111827;
+  --card: #111827;
+  --text: #f9fafb;
+  --text-secondary: #9ca3af;
+  --border: #374151;
+  --border-hover: #4b5563;
+  --primary: #ffffff;
+  --primary-light: rgba(255, 255, 255, 0.03);
+  --accent: #818cf8;
+  --accent-hover: #6366f1;
+  --accent-light: rgba(99, 102, 241, 0.15);
+  
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+}
+
+body {
+  /* Relying strictly on offline system fonts */
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 3rem) clamp(1rem, 4vw, 2rem);
+}
+
+/* --- Header --- */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.header-content h1 {
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.25rem 0;
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-content p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 400;
+  max-width: 40ch;
+}
+
+.theme-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.theme-toggle::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+[data-theme="dark"] .theme-toggle::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath fill-rule='evenodd' d='M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* --- Main Card --- */
+.card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--border);
+}
+
+/* --- Upload Area --- */
+.upload-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: clamp(2.5rem, 6vw, 4rem) 2rem;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 3rem;
+  transition: var(--transition);
+  background: var(--primary-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-area:hover, .upload-area.dragover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  transform: translateY(-2px);
+}
+
+.upload-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  transition: transform 0.3s ease;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.upload-area:hover .upload-icon {
+  transform: scale(1.1) translateY(-5px);
+}
+
+.upload-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.upload-subtext {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* --- Controls Grid --- */
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 2rem 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.control-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.2rem;
+}
+
+.control-value {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 700;
+  background: var(--accent-light);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+}
+
+/* --- Custom Inputs --- */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.toggle-switch.active {
+  background: var(--accent);
+}
+
+.toggle-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch.active::before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  -webkit-appearance: none;
+  margin: 0.75rem 0;
+  transition: var(--transition);
+}
+
+input[type="range"]:hover {
+  background: var(--border-hover);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover,
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.2);
+  background: var(--accent);
+}
+
+input[type="color"] {
+  width: 100%;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: var(--transition);
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+input[type="color"]:hover::-webkit-color-swatch {
+  border-color: var(--accent);
+  transform: scale(1.02);
+}
+
+select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+}
+
+[data-theme="dark"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+}
+
+select:hover, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.filter-options, .position-options, .layout-options, .sensor-options {
+  display: grid;
+  gap: 0.5rem;
+  background: var(--primary-light);
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.filter-options { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+.position-options { grid-template-columns: repeat(3, 1fr); }
+.layout-options { grid-template-columns: repeat(4, 1fr); }
+.sensor-options { grid-template-columns: repeat(2, 1fr); }
+
+.filter-btn, .position-btn, .layout-btn, .sensor-btn {
+  padding: 0.6rem 0.5rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.filter-btn:hover, .position-btn:hover, .layout-btn:hover, .sensor-btn:hover {
+  color: var(--text);
+  background: rgba(0,0,0,0.03);
+}
+
+[data-theme="dark"] .filter-btn:hover, 
+[data-theme="dark"] .position-btn:hover, 
+[data-theme="dark"] .layout-btn:hover, 
+[data-theme="dark"] .sensor-btn:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.filter-btn.active, .position-btn.active, .layout-btn.active, .sensor-btn.active {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+.position-icon, .layout-icon, .sensor-icon {
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.active .position-icon, .active .layout-icon, .active .sensor-icon {
+  opacity: 1;
+}
+
+.preview-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 3rem 0;
+  position: relative;
+  padding: 1rem;
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.canvas-container {
+  position: relative;
+  max-width: 680px;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  transition: max-width 0.3s ease;
+  background: var(--surface);
+}
+
+.canvas-container.portrait-preview {
+  max-width: 480px;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.download-btn {
+  display: block;
+  margin: 0 auto;
+  padding: 1.2rem 3rem;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  border: none;
+  background: linear-gradient(135deg, var(--accent) 0%, #818cf8 100%);
+  color: white;
+  cursor: pointer;
+  transition: var(--transition);
+  min-width: 280px;
+  letter-spacing: 0.5px;
+  box-shadow: var(--shadow-md), var(--shadow-glow);
+}
+
+.download-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
+}
+
+.download-btn:active {
+  transform: translateY(0);
+}
+
+.download-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: var(--border-hover);
+  color: var(--text-secondary);
+}
+
+.font-preview {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  min-height: 1.5em;
+  padding-left: 0.25rem;
+}
+
+.orientation-indicator,
+.ratio-indicator,
+.sensor-indicator {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.instagram-option {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.contrast-warning {
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 500;
+}
+
+.contrast-warning.hidden {
+  display: none;
+}
+
+.control-group > div[style*="font-size: 0.75rem"] {
+  color: var(--text-secondary) !important;
+  font-size: 0.8rem !important;
+  line-height: 1.4;
+  margin-top: 0.3rem;
+}
+
+footer {
+  text-align: center;
+  margin-top: 4rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .wrapper {
+    padding: 1rem;
+  }
+  .card {
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+  }
+  .upload-area {
+    padding: 2.5rem 1rem;
+  }
+  .controls-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .theme-toggle {
+    align-self: flex-start;
+  }
+  .download-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .layout-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .filter-options {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .preview-wrap {
+    margin: 2rem -1.5rem;
+    border-radius: 0;
+    padding: 1rem 0;
+  }
+}
+</style>
+</head>
+
+<body data-theme="light">
+<div class="wrapper">
+<header>
+  <div class="header-content">
+    <h1>EXIF Border Generator</h1>
+    <p>Add beautiful borders with camera metadata to your photos</p>
+  </div>
+  <button class="theme-toggle" id="themeToggle">Dark Mode</button>
+</header>
+
+<div class="card">
+  <div class="upload-area" id="upload">
+    <div class="upload-icon">📷</div>
+    <div class="upload-text">Upload Your Photo</div>
+    <div class="upload-subtext">Click or drag & drop an image</div>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+  </div>
+
+  <div class="controls-grid">
+    <div class="control-group">
+      <div class="control-label">
+        <span>Sensor Mode <span id="sensorIndicator" class="sensor-indicator">Full Frame</span></span>
+        <span class="control-value" id="sensorValue">Full Frame</span>
+      </div>
+      <div class="sensor-options">
+        <button class="sensor-btn active" data-sensor="fullframe">
+          <span class="sensor-icon">📷</span>
+          <span>Full Frame</span>
+        </button>
+        <button class="sensor-btn" data-sensor="aps-c">
+          <span class="sensor-icon">🔍</span>
+          <span>APS-C (1.5x)</span>
+        </button>
+        <button class="sensor-btn" data-sensor="mft">
+          <span class="sensor-icon">📐</span>
+          <span>MFT (2.0x)</span>
+        </button>
+        <button class="sensor-btn" data-sensor="canon-crop">
+          <span class="sensor-icon">📊</span>
+          <span>Canon APS-C (1.6x)</span>
+        </button>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+        <strong>Full Frame:</strong> Shows 35mm equivalent (×1.5 from APS-C)<br>
+        <strong>APS-C:</strong> Shows actual focal length (no conversion)<br>
+        <strong>MFT:</strong> Shows equivalent for MFT (×0.75 from APS-C)<br>
+        <strong>Canon APS-C:</strong> Shows equivalent for Canon (×0.94 from APS-C)
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <div class="toggle-label">
+          <span>Borderless Mode</span>
+        </div>
+        <div class="toggle-switch" id="borderlessToggle"></div>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary);">Place EXIF text inside photo without borders</div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Text Position</span>
+        <span class="control-value" id="textPositionValue">Bottom Center</span>
+      </div>
+      <div class="position-options">
+        <button class="position-btn" data-position="bottom-left">
+          <span class="position-icon">↙️</span>
+          <span>Bottom Left</span>
+        </button>
+        <button class="position-btn active" data-position="bottom-center">
+          <span class="position-icon">⬇️</span>
+          <span>Bottom Center</span>
+        </button>
+        <button class="position-btn" data-position="bottom-right">
+          <span class="position-icon">↘️</span>
+          <span>Bottom Right</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>EXIF Layout</span>
+        <span class="control-value" id="layoutValue">Classic</span>
+      </div>
+      <div class="layout-options">
+        <button class="layout-btn active" data-layout="classic">
+          <span class="layout-icon">📄</span>
+          <span>Classic</span>
+        </button>
+        <button class="layout-btn" data-layout="compact">
+          <span class="layout-icon">📊</span>
+          <span>Compact</span>
+        </button>
+        <button class="layout-btn" data-layout="minimal">
+          <span class="layout-icon">🎯</span>
+          <span>Minimal</span>
+        </button>
+        <button class="layout-btn" data-layout="vertical">
+          <span class="layout-icon">📐</span>
+          <span>Vertical</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <div class="toggle-label">
+          <span>Instagram Mode</span>
+          <span id="instagramRatioValue" class="ratio-indicator" style="display: none;">4:5</span>
+        </div>
+        <div class="toggle-switch" id="instagramToggle"></div>
+      </div>
+      <select id="instagramRatio" class="instagram-ratio" disabled>
+        <option value="4:5">Portrait (4:5)</option>
+        <option value="1:1">Square (1:1)</option>
+        <option value="1.91:1">Landscape (1.91:1)</option>
+      </select>
+      <div class="instagram-option">Adds top/bottom borders with Instagram aspect ratios</div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Font Family <span id="orientationIndicator" class="orientation-indicator" style="display: none;">Portrait</span></span>
+        <span class="control-value" id="fontFamilyValue">System Default</span>
+      </div>
+      <!-- Reduced options to generic families since external webfonts are removed for offline support -->
+      <select id="fontFamily">
+        <option value="system-ui">System Default (Modern)</option>
+        <option value="sans-serif">Sans-Serif (Clean)</option>
+        <option value="serif">Serif (Elegant)</option>
+        <option value="monospace">Monospace (Technical)</option>
+      </select>
+      <div class="font-preview" id="fontPreview">The quick brown fox jumps over the lazy dog</div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <div class="toggle-label">
+          <span>Show EXIF Data</span>
+        </div>
+        <div class="toggle-switch active" id="exifToggle"></div>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary);">Toggle to show/hide camera settings</div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Text Background Opacity</span>
+        <span class="control-value" id="textBgOpacityValue">0%</span>
+      </div>
+      <input type="range" id="textBgOpacity" min="0" max="100" step="5" value="0">
+      <div style="font-size: 0.75rem; color: var(--text-secondary);">Opacity of the background behind text</div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Text Background Color</span>
+        <span class="control-value" id="textBgColorValue">#FFFFFF</span>
+      </div>
+      <input type="color" id="textBgColor" value="#ffffff">
+      <div class="contrast-warning hidden" id="contrastWarning">
+        <span>⚠️</span>
+        <span>Low contrast with text color</span>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Image Filter</span>
+        <span class="control-value" id="filterValue">None</span>
+      </div>
+      <div class="filter-options">
+        <button class="filter-btn active" data-filter="none">None</button>
+        <button class="filter-btn" data-filter="grayscale">B&W</button>
+        <button class="filter-btn" data-filter="sepia">Sepia</button>
+        <button class="filter-btn" data-filter="vintage">Vintage</button>
+        <button class="filter-btn" data-filter="cool">Cool</button>
+        <button class="filter-btn" data-filter="warm">Warm</button>
+        <button class="filter-btn" data-filter="high-contrast">Contrast</button>
+        <button class="filter-btn" data-filter="kodachrome">Kodachrome</button>
+        <button class="filter-btn" data-filter="polaroid">Polaroid</button>
+        <button class="filter-btn" data-filter="film-grain">Film Grain</button>
+        <button class="filter-btn" data-filter="instagram">Instagram</button>
+        <button class="filter-btn" data-filter="lomo">Lomo</button>
+        <button class="filter-btn" data-filter="cinematic">Cinematic</button>
+        <button class="filter-btn" data-filter="faded">Faded</button>
+        <button class="filter-btn" data-filter="dramatic">Dramatic</button>
+        <button class="filter-btn" data-filter="urban">Urban</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Font Size</span>
+        <span class="control-value" id="fontScaleValue">1.0</span>
+      </div>
+      <input type="range" id="fontScale" min="0.6" max="1.4" step="0.05" value="1">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Line Spacing</span>
+        <span class="control-value" id="lineSpacingValue">1.2</span>
+      </div>
+      <input type="range" id="lineSpacing" min="0.8" max="2.0" step="0.05" value="1.2">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Border Size</span>
+        <span class="control-value" id="borderSizeValue">4%</span>
+      </div>
+      <input type="range" id="borderSize" min="0.02" max="0.10" step="0.005" value="0.04">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Border Color</span>
+        <span class="control-value" id="borderColorValue">#FFFFFF</span>
+      </div>
+      <input type="color" id="borderColor" value="#ffffff">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Text Color</span>
+        <span class="control-value" id="textColorValue">#111111</span>
+      </div>
+      <input type="color" id="textColor" value="#111111">
+      <div class="contrast-warning hidden" id="textContrastWarning">
+        <span>⚠️</span>
+        <span>Low contrast with background</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-wrap">
+    <div class="canvas-container" id="canvasContainer">
+      <canvas id="previewCanvas"></canvas>
+    </div>
+  </div>
+
+  <button class="download-btn" id="downloadBtn" disabled>
+    Download Full Resolution
+  </button>
+</div>
+
+<footer>
+  <p>EXIF Border Generator • Add professional camera metadata borders to your photos</p>
+  <p style="font-size: 0.85rem; margin-top: 0.5rem; opacity: 0.8;">Works offline • Install as app</p>
+</footer>
+</div>
+
+<script>
+class EXIFBorderApp {
+  constructor() {
+    this.initElements();
+    this.initUpload();
+    this.bindControls();
+    this.initTheme();
+    this.initOfflineStorage();
+    this.updateControlValues();
+    this.updateFontPreview();
+    this.initServiceWorker();
+    this.checkContrast();
+    
+    this.renderQueued = false;
+    this.renderThrottle = 16;
+    
+    const saveDebounce = this.debounce(() => this.saveSettings(), 1000);
+    [this.fontScaleEl, this.lineSpacingEl, this.borderSizeEl, 
+     this.borderColorEl, this.textColorEl, this.fontFamilyEl,
+     this.textBgOpacityEl, this.textBgColorEl]
+      .forEach(el => el.addEventListener('input', saveDebounce));
+  }
+
+  debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  initElements() {
+    this.previewCanvas = document.getElementById("previewCanvas");
+    this.previewCtx = this.previewCanvas.getContext("2d", {
+      alpha: true,
+      desynchronized: true
+    });
+    this.canvasContainer = document.getElementById("canvasContainer");
+    
+    this.orientationIndicator = document.getElementById("orientationIndicator");
+    this.exifToggle = document.getElementById("exifToggle");
+    this.filterValue = document.getElementById("filterValue");
+    this.filterButtons = document.querySelectorAll('.filter-btn');
+    
+    this.sensorIndicator = document.getElementById("sensorIndicator");
+    this.sensorValue = document.getElementById("sensorValue");
+    this.sensorButtons = document.querySelectorAll('.sensor-btn');
+    
+    this.borderlessToggle = document.getElementById("borderlessToggle");
+    
+    this.textPositionValue = document.getElementById("textPositionValue");
+    this.positionButtons = document.querySelectorAll('.position-btn');
+    
+    this.layoutValue = document.getElementById("layoutValue");
+    this.layoutButtons = document.querySelectorAll('.layout-btn');
+    
+    this.instagramToggle = document.getElementById("instagramToggle");
+    this.instagramRatioEl = document.getElementById("instagramRatio");
+    this.instagramRatioValue = document.getElementById("instagramRatioValue");
+    
+    this.textBgOpacityEl = document.getElementById("textBgOpacity");
+    this.textBgOpacityValue = document.getElementById("textBgOpacityValue");
+    this.textBgColorEl = document.getElementById("textBgColor");
+    this.textBgColorValue = document.getElementById("textBgColorValue");
+    
+    this.exportCanvas = document.createElement("canvas");
+    this.exportCtx = this.exportCanvas.getContext("2d");
+    
+    this.upload = document.getElementById("upload");
+    this.input = document.getElementById("fileInput");
+    this.downloadBtn = document.getElementById("downloadBtn");
+    
+    this.fontFamilyEl = document.getElementById("fontFamily");
+    this.fontScaleEl = document.getElementById("fontScale");
+    this.lineSpacingEl = document.getElementById("lineSpacing");
+    this.borderSizeEl = document.getElementById("borderSize");
+    this.borderColorEl = document.getElementById("borderColor");
+    this.textColorEl = document.getElementById("textColor");
+    
+    this.contrastWarning = document.getElementById("contrastWarning");
+    this.textContrastWarning = document.getElementById("textContrastWarning");
+    
+    this.fontPreview = document.getElementById("fontPreview");
+    this.fontFamilyValue = document.getElementById("fontFamilyValue");
+    this.fontScaleValue = document.getElementById("fontScaleValue");
+    this.lineSpacingValue = document.getElementById("lineSpacingValue");
+    this.borderSizeValue = document.getElementById("borderSizeValue");
+    this.borderColorValue = document.getElementById("borderColorValue");
+    this.textColorValue = document.getElementById("textColorValue");
+    
+    this.image = null;
+    this.filteredImage = null;
+    this.exif = null;
+    this.isPortrait = false;
+    this.showExif = true;
+    this.currentFilter = 'none';
+    this.instagramMode = false;
+    this.instagramRatio = "4:5";
+    this.textPosition = 'bottom-center';
+    this.borderlessMode = false;
+    this.layout = 'classic';
+    this.textBgOpacity = 0;
+    this.textBgColor = "#ffffff";
+    this.sensorMode = 'fullframe'; 
+    this.actualFocalLength = null;
+  }
+
+  initOfflineStorage() {
+    if (!localStorage.getItem('exifBorderSettings')) {
+      localStorage.setItem('exifBorderSettings', JSON.stringify({
+        theme: 'light',
+        fontSize: 1.0,
+        borderSize: 0.04,
+        textPosition: 'bottom-center',
+        borderlessMode: false,
+        layout: 'classic',
+        textBgOpacity: 0,
+        textBgColor: "#ffffff",
+        sensorMode: 'fullframe'
+      }));
+    }
+    
+    try {
+      const settings = JSON.parse(localStorage.getItem('exifBorderSettings'));
+      if (settings.theme) {
+        document.body.dataset.theme = settings.theme;
+        this.updateThemeButton();
+      }
+      if (settings.textPosition) {
+        this.setPosition(settings.textPosition);
+      }
+      if (settings.borderlessMode !== undefined) {
+        this.setBorderlessMode(settings.borderlessMode);
+      }
+      if (settings.layout) {
+        this.setLayout(settings.layout);
+      }
+      if (settings.textBgOpacity !== undefined) {
+        this.setTextBgOpacity(settings.textBgOpacity);
+      }
+      if (settings.textBgColor) {
+        this.setTextBgColor(settings.textBgColor);
+      }
+      if (settings.sensorMode) {
+        this.setSensorMode(settings.sensorMode);
+      }
+    } catch (e) {
+      console.log('No saved settings found');
+    }
+  }
+
+  saveSettings() {
+    const settings = {
+      theme: document.body.dataset.theme,
+      fontSize: this.fontScaleEl.value,
+      borderSize: this.borderSizeEl.value,
+      borderColor: this.borderColorEl.value,
+      textColor: this.textColorEl.value,
+      fontFamily: this.fontFamilyEl.value,
+      showExif: this.showExif,
+      instagramMode: this.instagramMode,
+      textPosition: this.textPosition,
+      borderlessMode: this.borderlessMode,
+      layout: this.layout,
+      textBgOpacity: this.textBgOpacity,
+      textBgColor: this.textBgColor,
+      sensorMode: this.sensorMode,
+      currentFilter: this.currentFilter,
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem('exifBorderSettings', JSON.stringify(settings));
+  }
+
+  setSensorMode(mode) {
+    this.sensorMode = mode;
+    this.sensorButtons.forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.dataset.sensor === mode) btn.classList.add('active');
+    });
+    
+    const sensorNames = {
+      'fullframe': 'Full Frame',
+      'aps-c': 'APS-C (1.5x)',
+      'mft': 'MFT (2.0x)',
+      'canon-crop': 'Canon APS-C (1.6x)'
+    };
+    this.sensorValue.textContent = sensorNames[mode] || mode;
+    this.sensorIndicator.textContent = sensorNames[mode].split(' (')[0];
+    
+    this.queueRender();
+    this.saveSettings();
+  }
+
+  setBorderlessMode(enabled) {
+    this.borderlessMode = enabled;
+    this.borderlessToggle.classList.toggle("active", enabled);
+    this.borderSizeEl.disabled = enabled;
+    this.borderColorEl.disabled = enabled;
+    this.queueRender();
+    this.saveSettings();
+  }
+
+  setLayout(layout) {
+    this.layout = layout;
+    this.layoutButtons.forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.dataset.layout === layout) btn.classList.add('active');
+    });
+    
+    const layoutNames = {
+      'classic': 'Classic',
+      'compact': 'Compact',
+      'minimal': 'Minimal',
+      'vertical': 'Vertical'
+    };
+    this.layoutValue.textContent = layoutNames[layout] || layout;
+    this.queueRender();
+    this.saveSettings();
+  }
+
+  setTextBgOpacity(value) {
+    this.textBgOpacity = parseInt(value);
+    this.textBgOpacityValue.textContent = `${this.textBgOpacity}%`;
+    this.textBgOpacityEl.value = value;
+    this.checkContrast();
+    this.queueRender();
+    this.saveSettings();
+  }
+
+  setTextBgColor(color) {
+    this.textBgColor = color;
+    this.textBgColorEl.value = color;
+    this.textBgColorValue.textContent = color.toUpperCase();
+    this.checkContrast();
+    this.queueRender();
+    this.saveSettings();
+  }
+
+  setPosition(position) {
+    this.textPosition = position;
+    this.positionButtons.forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.dataset.position === position) btn.classList.add('active');
+    });
+    
+    const positionNames = {
+      'bottom-left': 'Bottom Left',
+      'bottom-center': 'Bottom Center',
+      'bottom-right': 'Bottom Right'
+    };
+    this.textPositionValue.textContent = positionNames[position] || position;
+    this.queueRender();
+    this.saveSettings();
+  }
+
+  checkContrast() {
+    const textColor = this.textColorEl.value;
+    const bgColor = this.textBgColor;
+    const opacity = this.textBgOpacity / 100;
+    
+    if (opacity < 0.3) {
+      this.contrastWarning.classList.add('hidden');
+      this.textContrastWarning.classList.add('hidden');
+      return;
+    }
+    
+    const textRgb = this.hexToRgb(textColor);
+    const bgRgb = this.hexToRgb(bgColor);
+    const textLum = this.getRelativeLuminance(textRgb);
+    const bgLum = this.getRelativeLuminance(bgRgb);
+    const contrast = textLum > bgLum 
+      ? (textLum + 0.05) / (bgLum + 0.05)
+      : (bgLum + 0.05) / (textLum + 0.05);
+    
+    if (contrast < 2.5) {
+      this.contrastWarning.classList.remove('hidden');
+      this.textContrastWarning.classList.remove('hidden');
+    } else {
+      this.contrastWarning.classList.add('hidden');
+      this.textContrastWarning.classList.add('hidden');
+    }
+  }
+
+  hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+  }
+
+  getRelativeLuminance(rgb) {
+    const sRGB = [rgb.r / 255, rgb.g / 255, rgb.b / 255];
+    const adjusted = sRGB.map(c => {
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * adjusted[0] + 0.7152 * adjusted[1] + 0.0722 * adjusted[2];
+  }
+
+  initTheme() {
+    const toggle = document.getElementById("themeToggle");
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedTheme = localStorage.getItem('theme');
+    
+    if (savedTheme) {
+      document.body.dataset.theme = savedTheme;
+    } else if (prefersDark) {
+      document.body.dataset.theme = 'dark';
+    }
+    
+    this.updateThemeButton();
+    toggle.onclick = () => {
+      const root = document.body;
+      const dark = root.dataset.theme === "dark";
+      root.dataset.theme = dark ? "light" : "dark";
+      localStorage.setItem('theme', root.dataset.theme);
+      this.updateThemeButton();
+      this.saveSettings();
+    };
+  }
+
+  updateThemeButton() {
+    const toggle = document.getElementById("themeToggle");
+    const dark = document.body.dataset.theme === "dark";
+    toggle.textContent = dark ? "Light Mode" : "Dark Mode";
+  }
+
+  initUpload() {
+    this.upload.onclick = () => this.input.click();
+
+    ["dragenter","dragover"].forEach(e =>
+      this.upload.addEventListener(e, ev => {
+        ev.preventDefault();
+        this.upload.classList.add("dragover");
+      })
+    );
+
+    ["dragleave","drop"].forEach(e =>
+      this.upload.addEventListener(e, ev => {
+        ev.preventDefault();
+        this.upload.classList.remove("dragover");
+      })
+    );
+
+    this.upload.addEventListener("drop", e => {
+      const file = e.dataTransfer.files[0];
+      if (file?.type.startsWith("image")) this.loadImage(file);
+    });
+
+    this.input.onchange = e => this.loadImage(e.target.files[0]);
+  }
+
+  bindControls() {
+    this.sensorButtons.forEach(btn => {
+      btn.onclick = (e) => {
+        const sensorMode = e.currentTarget.dataset.sensor;
+        this.setSensorMode(sensorMode);
+      };
+    });
+
+    this.exifToggle.onclick = () => {
+      this.showExif = !this.showExif;
+      this.exifToggle.classList.toggle("active");
+      this.queueRender();
+      this.saveSettings();
+    };
+
+    this.borderlessToggle.onclick = () => {
+      this.setBorderlessMode(!this.borderlessMode);
+    };
+
+    this.instagramToggle.onclick = () => {
+      this.instagramMode = !this.instagramMode;
+      this.instagramToggle.classList.toggle("active");
+      this.instagramRatioEl.disabled = !this.instagramMode;
+      
+      if (this.instagramMode) {
+        this.instagramRatioValue.textContent = this.instagramRatio;
+        this.instagramRatioValue.style.display = "inline-block";
+      } else {
+        this.instagramRatioValue.style.display = "none";
+      }
+      this.queueRender();
+      this.saveSettings();
+    };
+
+    this.instagramRatioEl.onchange = () => {
+      this.instagramRatio = this.instagramRatioEl.value;
+      this.instagramRatioValue.textContent = this.instagramRatio;
+      this.queueRender();
+      this.saveSettings();
+    };
+
+    this.filterButtons.forEach(btn => {
+      btn.onclick = (e) => {
+        const filter = e.target.dataset.filter;
+        this.setFilter(filter);
+        this.saveSettings();
+      };
+    });
+
+    this.positionButtons.forEach(btn => {
+      btn.onclick = (e) => {
+        const position = e.currentTarget.dataset.position;
+        this.setPosition(position);
+      };
+    });
+
+    this.layoutButtons.forEach(btn => {
+      btn.onclick = (e) => {
+        const layout = e.currentTarget.dataset.layout;
+        this.setLayout(layout);
+      };
+    });
+
+    this.textBgOpacityEl.oninput = () => {
+      this.setTextBgOpacity(this.textBgOpacityEl.value);
+    };
+
+    this.textBgColorEl.oninput = () => {
+      this.setTextBgColor(this.textBgColorEl.value);
+    };
+
+    this.fontFamilyEl.onchange = () => {
+      this.updateControlValues();
+      this.updateFontPreview();
+      this.queueRender();
+      this.saveSettings();
+    };
+    
+    [this.fontScaleEl, this.lineSpacingEl, this.borderSizeEl, this.borderColorEl, this.textColorEl]
+      .forEach(el => {
+        el.oninput = () => {
+          this.updateControlValues();
+          this.checkContrast();
+          this.queueRender();
+          this.saveSettings();
+        };
+      });
+
+    this.downloadBtn.onclick = () => this.download();
+  }
+
+  updateControlValues() {
+    this.fontFamilyValue.textContent = this.fontFamilyEl.value.split(" (")[0];
+    this.fontScaleValue.textContent = parseFloat(this.fontScaleEl.value).toFixed(2);
+    this.lineSpacingValue.textContent = parseFloat(this.lineSpacingEl.value).toFixed(2);
+    this.borderSizeValue.textContent = `${Math.round(parseFloat(this.borderSizeEl.value) * 100)}%`;
+    this.borderColorValue.textContent = this.borderColorEl.value.toUpperCase();
+    this.textColorValue.textContent = this.textColorEl.value.toUpperCase();
+  }
+
+  updateFontPreview() {
+    const fontName = this.fontFamilyEl.value.split(" (")[0];
+    this.fontPreview.textContent = `Preview: ${fontName} font`;
+    this.fontPreview.style.fontFamily = fontName;
+  }
+
+  setFilter(filter) {
+    this.currentFilter = filter;
+    this.filterValue.textContent = this.getFilterName(filter);
+    
+    this.filterButtons.forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.dataset.filter === filter) btn.classList.add('active');
+    });
+    
+    if (this.image) {
+      this.applyFilterToImage();
+      this.queueRender();
+    }
+  }
+
+  getFilterName(filter) {
+    const names = {
+      'none': 'None',
+      'grayscale': 'Black & White',
+      'sepia': 'Sepia',
+      'vintage': 'Vintage',
+      'cool': 'Cool',
+      'warm': 'Warm',
+      'high-contrast': 'High Contrast',
+      'kodachrome': 'Kodachrome',
+      'polaroid': 'Polaroid',
+      'film-grain': 'Film Grain',
+      'instagram': 'Instagram',
+      'lomo': 'Lomo',
+      'cinematic': 'Cinematic',
+      'faded': 'Faded',
+      'dramatic': 'Dramatic',
+      'urban': 'Urban'
+    };
+    return names[filter] || filter;
+  }
+
+  applyFilterToImage() {
+    if (!this.image) return;
+    
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = this.image.width;
+    tempCanvas.height = this.image.height;
+    
+    tempCtx.drawImage(this.image, 0, 0);
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageData.data;
+    
+    switch(this.currentFilter) {
+      case 'grayscale': this.applyGrayscale(data); break;
+      case 'sepia': this.applySepia(data); break;
+      case 'vintage': this.applyVintage(data); break;
+      case 'cool': this.applyCool(data); break;
+      case 'warm': this.applyWarm(data); break;
+      case 'high-contrast': this.applyHighContrast(data); break;
+      case 'kodachrome': this.applyKodachrome(data); break;
+      case 'polaroid': this.applyPolaroid(data); break;
+      case 'film-grain': this.applyFilmGrain(data, tempCanvas.width, tempCanvas.height); break;
+      case 'instagram': this.applyInstagram(data); break;
+      case 'lomo': this.applyLomo(data); break;
+      case 'cinematic': this.applyCinematic(data); break;
+      case 'faded': this.applyFaded(data); break;
+      case 'dramatic': this.applyDramatic(data); break;
+      case 'urban': this.applyUrban(data); break;
+      default:
+        this.filteredImage = this.image;
+        return;
+    }
+    
+    tempCtx.putImageData(imageData, 0, 0);
+    this.filteredImage = new Image();
+    this.filteredImage.src = tempCanvas.toDataURL();
+    this.filteredImage.onload = () => this.queueRender();
+  }
+
+  applyGrayscale(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      data[i] = data[i + 1] = data[i + 2] = avg;
+    }
+  }
+
+  applySepia(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
+      data[i + 1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
+      data[i + 2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
+    }
+  }
+
+  applyVintage(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      data[i] = Math.min(255, (avg * 0.7 + data[i] * 0.3) * 1.1);
+      data[i + 1] = Math.min(255, (avg * 0.7 + data[i + 1] * 0.3) * 0.9);
+      data[i + 2] = Math.min(255, (avg * 0.7 + data[i + 2] * 0.3) * 0.8);
+    }
+  }
+
+  applyCool(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.max(0, data[i] * 0.9);
+      data[i + 2] = Math.min(255, data[i + 2] * 1.1);
+    }
+  }
+
+  applyWarm(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.min(255, data[i] * 1.1);
+      data[i + 1] = Math.min(255, data[i + 1] * 1.05);
+      data[i + 2] = Math.max(0, data[i + 2] * 0.9);
+    }
+  }
+
+  applyHighContrast(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.max(0, Math.min(255, ((data[i] - 128) * 1.5) + 128));
+      data[i + 1] = Math.max(0, Math.min(255, ((data[i + 1] - 128) * 1.5) + 128));
+      data[i + 2] = Math.max(0, Math.min(255, ((data[i + 2] - 128) * 1.5) + 128));
+    }
+  }
+
+  applyKodachrome(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      let r = Math.min(255, data[i] * 1.2 * 1.05);
+      let g = Math.min(255, data[i + 1] * 1.1 * 1.02);
+      let b = Math.max(0, data[i + 2] * 0.9);
+      const avg = (r + g + b) / 3;
+      data[i] = avg * 0.3 + r * 0.7;
+      data[i + 1] = avg * 0.3 + g * 0.7;
+      data[i + 2] = avg * 0.4 + b * 0.6;
+    }
+  }
+
+  applyPolaroid(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      let r = avg * 0.3 + data[i] * 0.7;
+      let g = avg * 0.3 + data[i + 1] * 0.7;
+      let b = avg * 0.3 + data[i + 2] * 0.7;
+      data[i] = (Math.min(255, r * 1.08) - 128) * 0.8 + 128;
+      data[i + 1] = (Math.min(255, g * 1.05) - 128) * 0.8 + 128;
+      data[i + 2] = (Math.max(0, b * 0.95) - 128) * 0.8 + 128;
+    }
+  }
+
+  applyFilmGrain(data) {
+    this.applyVintage(data);
+    for (let i = 0; i < data.length; i += 4) {
+      const grain = (Math.random() - 0.5) * 15;
+      data[i] = Math.max(0, Math.min(255, data[i] + grain));
+      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + grain));
+      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + grain));
+    }
+  }
+
+  applyInstagram(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      if (max !== 0 && (max - min) / max < 0.7) {
+        data[i] = Math.min(255, r * 1.1);
+        data[i + 1] = Math.min(255, g * 1.1);
+        data[i + 2] = Math.min(255, b * 1.1);
+      }
+      data[i] = (data[i] - 128) * 1.1 + 128;
+      data[i + 1] = (data[i + 1] - 128) * 1.1 + 128;
+      data[i + 2] = (data[i + 2] - 128) * 1.1 + 128;
+    }
+  }
+
+  applyLomo(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.min(255, ((data[i] * 1.3) - 128) * 1.3 + 128);
+      let g = Math.min(255, ((data[i + 1] * 1.1) - 128) * 1.3 + 128);
+      let b = Math.max(0, ((data[i + 2] * 0.9) - 128) * 1.3 + 128);
+      if (data[i] < 128) g = Math.min(255, g * 1.1);
+      if (data[i] < 128) b = Math.min(255, b * 1.05);
+      data[i + 1] = g; data[i + 2] = b;
+    }
+  }
+
+  applyCinematic(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const luminance = (r + g + b) / 3;
+      if (luminance > 160) {
+        data[i] = Math.min(255, r * 1.15);
+        data[i + 1] = Math.min(255, g * 1.05);
+        data[i + 2] = Math.max(0, b * 0.9);
+      } else if (luminance < 96) {
+        data[i] = Math.max(0, r * 0.9);
+        data[i + 1] = Math.min(255, g * 1.1);
+        data[i + 2] = Math.min(255, b * 1.05);
+      }
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      data[i] = avg * 0.2 + data[i] * 0.8;
+      data[i + 1] = avg * 0.2 + data[i + 1] * 0.8;
+      data[i + 2] = avg * 0.2 + data[i + 2] * 0.8;
+      if (data[i] < 32) data[i] = 20;
+      if (data[i + 1] < 32) data[i + 1] = 20;
+      if (data[i + 2] < 32) data[i + 2] = 20;
+    }
+  }
+
+  applyFaded(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const avg = (r + g + b) / 3;
+      data[i] = (Math.min(255, avg * 0.6 + r * 0.4 + 20) - 128) * 0.7 + 128;
+      data[i + 1] = (Math.min(255, avg * 0.6 + g * 0.4 + 20) - 128) * 0.7 + 128;
+      data[i + 2] = Math.min(255, ((Math.min(255, avg * 0.6 + b * 0.4 + 20) - 128) * 0.7 + 128) * 1.05);
+    }
+  }
+
+  applyDramatic(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const avg = (r + g + b) / 3;
+      let newValue = avg < 64 ? avg * 0.5 : avg < 192 ? 64 + (avg - 64) * 1.2 : 192 + (avg - 192) * 0.8;
+      data[i] = newValue * 0.1 + r * 0.9;
+      data[i + 1] = newValue * 0.1 + g * 0.9;
+      data[i + 2] = newValue * 0.1 + b * 0.9;
+      if (data[i] < 64) data[i] *= 0.8;
+      if (data[i + 1] < 64) data[i + 1] *= 0.8;
+      if (data[i + 2] < 64) data[i + 2] *= 0.8;
+    }
+  }
+
+  applyUrban(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      data[i] = Math.max(0, r * 0.9);
+      data[i + 1] = Math.min(255, g * 1.05);
+      data[i + 2] = Math.min(255, b * 1.1);
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      if (Math.abs(data[i] - avg) > 20) data[i] = (data[i] - avg) * 1.2 + avg;
+      if (Math.abs(data[i + 1] - avg) > 20) data[i + 1] = (data[i + 1] - avg) * 1.2 + avg;
+      if (Math.abs(data[i + 2] - avg) > 20) data[i + 2] = (data[i + 2] - avg) * 1.2 + avg;
+      const grain = (Math.random() - 0.5) * 8;
+      data[i] = Math.max(0, Math.min(255, data[i] + grain));
+      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + grain));
+      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + grain));
+    }
+  }
+
+  loadImage(file) {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+
+    img.onload = () => {
+      this.image = img;
+      this.filteredImage = img;
+      
+      this.isPortrait = img.height > img.width;
+      this.updateOrientationIndicator();
+      
+      // EXIF processing will only happen if EXIF variable is loaded (exif.js)
+      if (typeof EXIF !== 'undefined') {
+        EXIF.getData(img, () => {
+          const focalLength = EXIF.getTag(img, "FocalLength");
+          this.actualFocalLength = focalLength ? parseFloat(focalLength) : null;
+          
+          this.exif = {
+            make: EXIF.getTag(img, "Make"),
+            model: EXIF.getTag(img, "Model"),
+            focal: this.actualFocalLength,
+            aperture: EXIF.getTag(img, "FNumber"),
+            shutter: EXIF.getTag(img, "ExposureTime"),
+            iso: EXIF.getTag(img, "ISOSpeedRatings")
+          };
+          this.queueRender();
+          this.downloadBtn.disabled = false;
+        });
+      } else {
+        // Fallback if exif.js is missing locally
+        this.exif = { make: "EXIF.js not found", model: "" };
+        this.queueRender();
+        this.downloadBtn.disabled = false;
+      }
+    };
+  }
+
+  updateOrientationIndicator() {
+    if (this.isPortrait) {
+      this.orientationIndicator.textContent = "Portrait";
+      this.orientationIndicator.style.display = "inline-block";
+      this.canvasContainer.classList.add("portrait-preview");
+    } else {
+      this.orientationIndicator.textContent = "Landscape";
+      this.orientationIndicator.style.display = "inline-block";
+      this.canvasContainer.classList.remove("portrait-preview");
+    }
+  }
+
+  getInstagramRatioValue() {
+    return {
+      "4:5": 4/5,
+      "1:1": 1,
+      "1.91:1": 1.91
+    }[this.instagramRatio];
+  }
+
+  getDisplayFocalLength() {
+    if (!this.actualFocalLength) return null;
+    const actualFocalLength = this.actualFocalLength;
+    switch(this.sensorMode) {
+      case 'fullframe':
+        return { display: `${Math.round(actualFocalLength * 1.5)}mm` };
+      case 'aps-c':
+        return { display: `${Math.round(actualFocalLength)}mm` };
+      case 'mft':
+        return { display: `${Math.round(actualFocalLength * 0.75)}mm` };
+      case 'canon-crop':
+        return { display: `${Math.round(actualFocalLength * 0.9375)}mm` };
+      default:
+        return { display: `${Math.round(actualFocalLength)}mm` };
+    }
+  }
+
+  getExifString(separator) {
+    let exifString = "";
+    if (this.actualFocalLength) {
+      const focalData = this.getDisplayFocalLength();
+      if (focalData) exifString += focalData.display + separator;
+    }
+    if (this.exif.aperture) exifString += "f/" + this.exif.aperture + separator;
+    if (this.exif.shutter) {
+      if (this.exif.shutter < 1) {
+        exifString += "1/" + Math.round(1 / this.exif.shutter) + "s" + separator;
+      } else {
+        exifString += this.exif.shutter + "s" + separator;
+      }
+    }
+    if (this.exif.iso) exifString += "ISO" + this.exif.iso;
+    
+    if (exifString.endsWith(separator)) {
+      exifString = exifString.slice(0, -separator.length);
+    }
+    return exifString.trim();
+  }
+
+  getCameraText() {
+    const model = this.exif.model || "";
+    const make = this.exif.make || "";
+    const cleanedModel = model.replace(new RegExp(`^${make}\\s*`, 'i'), '').trim();
+    if (cleanedModel && make) return `${cleanedModel} ${make}`;
+    else if (cleanedModel) return cleanedModel;
+    else if (make) return make;
+    else return "Unknown Camera";
+  }
+
+  queueRender() {
+    if (this.renderQueued) return;
+    this.renderQueued = true;
+    requestAnimationFrame(() => {
+      this.renderQueued = false;
+      this.render(this.previewCtx, this.previewCanvas, true);
+    });
+  }
+
+  render(ctx, canvas, preview) {
+    if (!this.image || !this.exif) return;
+
+    const imageToDraw = this.filteredImage || this.image;
+    let scale = preview ? Math.min(1, (this.isPortrait ? 480 : 680) / this.image.width) : 1;
+    const imgW = this.image.width * scale;
+    const imgH = this.image.height * scale;
+    const borderRatio = this.borderlessMode ? 0 : +this.borderSizeEl.value;
+    
+    let side, top, bottom;
+    if (this.instagramMode) {
+      side = imgW * borderRatio * 0.5;
+      top = imgH * borderRatio * 1.5;
+      bottom = imgH * borderRatio * (this.showExif ? 4.0 : 2.5);
+    } else {
+      side = imgW * borderRatio;
+      top = imgW * borderRatio;
+      bottom = imgH * borderRatio * (this.showExif ? (this.isPortrait ? 5.0 : 4.0) : (this.isPortrait ? 2.5 : 2.0));
+    }
+
+    const contentWidth = imgW + side * 2;
+    const contentHeight = imgH + top + bottom;
+    let canvasW = contentWidth, canvasH = contentHeight, contentX = side, contentY = top;
+
+    if (this.instagramMode) {
+      const targetRatio = this.getInstagramRatioValue();
+      const contentRatio = contentWidth / contentHeight;
+      if (contentRatio > targetRatio) {
+        canvasH = contentWidth / targetRatio;
+        contentY = top + (canvasH - contentHeight) / 2;
+      } else if (contentRatio < targetRatio) {
+        canvasW = contentHeight * targetRatio;
+        contentX = side + (canvasW - contentWidth) / 2;
+      }
+    }
+
+    if (this.borderlessMode) {
+      canvasW = imgW; canvasH = imgH;
+      contentX = 0; contentY = 0;
+      side = 0; top = 0; bottom = 0;
+    }
+
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+
+    if (!this.borderlessMode) {
+      ctx.fillStyle = this.borderColorEl.value;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+    }
+
+    ctx.drawImage(imageToDraw, contentX, contentY, imgW, imgH);
+
+    const fontFamily = this.fontFamilyEl.value.split(" (")[0];
+    const titleSize = Math.max(26 * scale, canvas.width / 48) * +this.fontScaleEl.value;
+    const metaSize = titleSize * 0.75;
+    const lineSpacing = +this.lineSpacingEl.value;
+
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = this.textColorEl.value;
+
+    const cameraText = this.getCameraText();
+    const padding = 30 * scale;
+    let titleY, metaY;
+    
+    if (this.borderlessMode) {
+      let textHeight = this.showExif ? (this.layout === 'vertical' ? titleSize * 2.5 + metaSize * 4 + padding * 2 : titleSize * 1.5 + metaSize + padding * 1.5) : titleSize * 1.2 + padding * 1.5;
+      const maxBottomY = contentY + imgH - padding;
+      const minTopY = contentY + padding;
+      titleY = maxBottomY - (textHeight * 0.6);
+      metaY = titleY + (titleSize * lineSpacing * 0.8);
+      if (titleY < minTopY) {
+        titleY = minTopY + titleSize;
+        metaY = titleY + (titleSize * lineSpacing * 0.8);
+      }
+    } else {
+      titleY = contentY + imgH + (bottom * 0.35);
+      metaY = titleY + (titleSize * lineSpacing * 0.8);
+    }
+    
+    if (this.textBgOpacity > 0 && this.showExif) {
+      this.drawTextBackground(ctx, contentX, contentY, imgW, imgH, titleY, metaY, titleSize, metaSize, scale, padding, cameraText);
+    }
+    
+    ctx.fillStyle = this.textColorEl.value;
+    
+    if (this.showExif) {
+      switch(this.layout) {
+        case 'classic': this.renderClassicLayout(ctx, contentX, imgW, titleY, metaY, titleSize, metaSize, fontFamily, lineSpacing, cameraText, padding); break;
+        case 'compact': this.renderCompactLayout(ctx, contentX, imgW, titleY, metaY, titleSize, metaSize, fontFamily, lineSpacing, cameraText, padding); break;
+        case 'minimal': this.renderMinimalLayout(ctx, contentX, imgW, titleY, metaY, titleSize, metaSize, fontFamily, lineSpacing, cameraText, padding); break;
+        case 'vertical': this.renderVerticalLayout(ctx, contentX, imgW, titleY, metaY, titleSize, metaSize, fontFamily, lineSpacing, cameraText, padding); break;
+      }
+    } else {
+      this.renderNoExifLayout(ctx, contentX, imgW, titleY, titleSize, fontFamily, cameraText, padding);
+    }
+  }
+
+  drawTextBackground(ctx, contentX, contentY, imgW, imgH, titleY, metaY, titleSize, metaSize, scale, padding, cameraText) {
+    const bgPaddingVertical = 15 * scale, bgPaddingHorizontal = 25 * scale, cornerRadius = 8 * scale;
+    const fontFamily = this.fontFamilyEl.value.split(" (")[0];
+    ctx.font = `400 ${titleSize}px ${fontFamily}`;
+    
+    let textWidth = 0, textHeight = 0;
+    
+    if (this.layout === 'compact') {
+      let combinedText = `Shot on ${cameraText}` + (this.getExifString(" ").trim() ? ` • ${this.getExifString(" ").trim()}` : '');
+      textWidth = ctx.measureText(combinedText).width;
+      textHeight = titleSize + bgPaddingVertical * 2;
+    } else if (this.layout === 'minimal') {
+      ctx.font = `700 ${titleSize}px ${fontFamily}`;
+      textWidth = ctx.measureText(cameraText).width;
+      textHeight = titleSize + metaSize + bgPaddingVertical * 2;
+    } else if (this.layout === 'vertical') {
+      textWidth = Math.min(200 * scale, imgW - padding * 2);
+      textHeight = titleSize * 2.5 + metaSize * 4 + bgPaddingVertical * 2;
+    } else {
+      ctx.font = `400 ${titleSize}px ${fontFamily}`;
+      const shotOnWidth = ctx.measureText("Shot on ").width;
+      ctx.font = `700 ${titleSize}px ${fontFamily}`;
+      textWidth = shotOnWidth + ctx.measureText(cameraText).width;
+      textHeight = titleSize * 1.5 + metaSize + bgPaddingVertical * 2;
+    }
+    
+    textWidth = Math.min(textWidth, imgW - padding * 2);
+    let bgX, bgY, bgWidth = textWidth + (bgPaddingHorizontal * 2), bgHeight = textHeight;
+    
+    switch(this.textPosition) {
+      case 'bottom-left': bgX = contentX + padding; break;
+      case 'bottom-right': bgX = contentX + imgW - bgWidth - padding; break;
+      default: bgX = contentX + (imgW - bgWidth) / 2; break;
+    }
+    
+    bgY = titleY - titleSize * 0.6 - bgPaddingVertical;
+    if (this.borderlessMode) {
+      if (bgY < contentY) bgY = contentY + 5;
+      if (bgY + bgHeight > contentY + imgH) bgY = contentY + imgH - bgHeight - 5;
+    }
+    
+    const rgb = this.hexToRgb(this.textBgColor);
+    ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${this.textBgOpacity / 100})`;
+    
+    ctx.beginPath();
+    ctx.moveTo(bgX + cornerRadius, bgY);
+    ctx.lineTo(bgX + bgWidth - cornerRadius, bgY);
+    ctx.quadraticCurveTo(bgX + bgWidth, bgY, bgX + bgWidth, bgY + cornerRadius);
+    ctx.lineTo(bgX + bgWidth, bgY + bgHeight - cornerRadius);
+    ctx.quadraticCurveTo(bgX + bgWidth, bgY + bgHeight, bgX + bgWidth - cornerRadius, bgY + bgHeight);
+    ctx.lineTo(bgX + cornerRadius, bgY + bgHeight);
+    ctx.quadraticCurveTo(bgX, bgY + bgHeight, bgX, bgY + bgHeight - cornerRadius);
+    ctx.lineTo(bgX, bgY + cornerRadius);
+    ctx.quadraticCurveTo(bgX, bgY, bgX + cornerRadius, bgY);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  renderClassicLayout(ctx, contentX, imgW, titleY, metaY, titleSize, metaSize, fontFamily, lineSpacing, cameraText, padding) {
+    ctx.fillStyle = this.textColorEl.value;
+    
+    const maxTextX = contentX + imgW - padding;
+    ctx.font = `400 ${titleSize}px ${fontFamily}`;
+    const shotOnWidth = ctx.measureText("Shot on ").width;
+    ctx.font = `700 ${titleSize}px ${fontFamily}`;
+    const cameraWidth = ctx.measureText(cameraText).width;
+    
+    if (this.textPosition === 'bottom-center') {
+      ctx.textAlign = "center";
+      const totalWidth = shotOnWidth + cameraWidth;
+      const maxWidth = imgW - padding * 2;
+      
+      if (totalWidth > maxWidth) {
+        const scaleFactor = maxWidth / totalWidth;
+        const adjustedTitleSize = titleSize * Math.min(scaleFactor, 1);
+        ctx.font = `400 ${adjustedTitleSize}px ${fontFamily}`;
+        const adjustedShotOnWidth = ctx.measureText("Shot on ").width;
+        ctx.font = `700 ${adjustedTitleSize}px ${fontFamily}`;
+        const adjustedTotalWidth = adjustedShotOnWidth + ctx.measureText(cameraText).width;
+        const startX = contentX + (imgW / 2) - (adjustedTotalWidth / 2);
+        
+        ctx.textAlign = "left";
+        ctx.font = `400 ${adjustedTitleSize}px ${fontFamily}`;
+        ctx.fillText("Shot on ", startX, titleY);
+        ctx.font = `700 ${adjustedTitleSize}px ${fontFamily}`;
+        ctx.fillText(cameraText, startX + adjustedShotOnWidth, titleY);
+      } else {
+        const startX = contentX + (imgW / 2) - (totalWidth / 2);
+        ctx.textAlign = "left";
+        ctx.font = `400 ${titleSize}px ${fontFamily}`;
+        ctx.fillText("Shot on ", startX, titleY);
+        ctx.font = `700 ${titleSize}px ${fontFamily}`;
+        ctx.fillText(cameraText, startX + shotOnWidth, titleY);
+      }
+      
+      ctx.font = `400 ${metaSize}px ${fontFamily}`;
+      ctx.textAlign = "center";
+      let exifString = this.getExifString(" • ");
+      if (exifString.trim()) ctx.fillText(exifString.trim(), contentX + (imgW / 2), metaY);
+      
+    } else if (this.textPosition === 'bottom-left') {
+      const textX = contentX + padding;
+      ctx.textAlign = "left";
+      ctx.font = `400 ${titleSize}px ${fontFamily}`;
+      ctx.fillText("Shot on ", textX, titleY);
+      ctx.font = `700 ${titleSize}px ${fontFamily}`;
+      ctx.fillText(cameraText, textX + shotOnWidth, titleY);
+      
+      ctx.font = `400 ${metaSize}px ${fontFamily}`;
+      let exifString = this.getExifString(" • ");
+      if (exifString.trim()) ctx.fillText(exifString.trim(), textX, metaY);
+      
+    } else if (this.textPosition === 'bottom-right') {
+      ctx.textAlign = "right";
+      ctx.font = `700 ${titleSize}px ${fontFamily}`;
+      ctx.fillText(cameraText, maxTextX, titleY);
+      ctx.font = `400 ${titleSize}px ${fontFamily}`;
+      ctx.fillText("Shot on ", maxTextX - cameraWidth, titleY);
+      
+      ctx.font = `400 ${metaSize}px ${fontFamily}`;
+      let exifString = this.getExifString(" • ");
+      if (exifString.trim()) ctx.fillText(exifString.trim(), maxTextX, metaY);
+    }
+  }
+
+  renderCompactLayout(ctx, contentX, imgW, titleY, metaY, titleSize, metaSize, fontFamily, lineSpacing, cameraText, padding) {
+    ctx.fillStyle = this.textColorEl.value;
+    let combinedText = `Shot on ${cameraText}` + (this.getExifString(" ").trim() ? ` • ${this.getExifString(" ").trim()}` : '');
+    
+    ctx.font = `500 ${titleSize}px ${fontFamily}`;
+    const textWidth = ctx.measureText(combinedText).width;
+    const maxWidth = imgW - padding * 2;
+    
+    if (this.textPosition === 'bottom-center') {
+      ctx.textAlign = "center";
+      if (textWidth > maxWidth) ctx.font = `500 ${titleSize * Math.min(maxWidth / textWidth, 1)}px ${fontFamily}`;
+      ctx.fillText(combinedText, contentX + (imgW / 2), titleY);
+    } else if (this.textPosition === 'bottom-left') {
+      ctx.textAlign = "left";
+      ctx.fillText(combinedText, contentX + padding, titleY);
+    } else if (this.textPosition === 'bottom-right') {
+      ctx.textAlign = "right";
+      ctx.fillText(combinedText, contentX + imgW - padding, titleY);
+    }
+  }
+
+  renderMinimalLayout(ctx, contentX, imgW, titleY, metaY, titleSize, metaSize, fontFamily, lineSpacing, cameraText, padding) {
+    ctx.fillStyle = this.textColorEl.value;
+    ctx.font = `700 ${titleSize}px ${fontFamily}`;
+    const textWidth = ctx.measureText(cameraText).width;
+    const maxWidth = imgW - padding * 2;
+    
+    const alignX = this.textPosition === 'bottom-center' ? contentX + (imgW / 2) : 
+                   this.textPosition === 'bottom-left' ? contentX + padding : contentX + imgW - padding;
+    ctx.textAlign = this.textPosition === 'bottom-center' ? "center" : 
+                    this.textPosition === 'bottom-left' ? "left" : "right";
+    
+    if (textWidth > maxWidth) ctx.font = `700 ${titleSize * Math.min(maxWidth / textWidth, 1)}px ${fontFamily}`;
+    ctx.fillText(cameraText, alignX, titleY);
+    
+    ctx.font = `300 ${metaSize * 0.9}px ${fontFamily}`;
+    let exifString = this.getExifString("  ");
+    if (exifString.trim()) ctx.fillText(exifString.trim(), alignX, metaY);
+  }
+
+  renderVerticalLayout(ctx, contentX, imgW, titleY, metaY, titleSize, metaSize, fontFamily, lineSpacing, cameraText, padding) {
+    ctx.fillStyle = this.textColorEl.value;
+    const verticalSpacing = titleSize * lineSpacing * 0.7;
+    const alignX = this.textPosition === 'bottom-center' ? contentX + (imgW / 2) : 
+                   this.textPosition === 'bottom-left' ? contentX + padding : contentX + imgW - padding;
+    ctx.textAlign = this.textPosition === 'bottom-center' ? "center" : 
+                    this.textPosition === 'bottom-left' ? "left" : "right";
+    
+    ctx.font = `700 ${titleSize}px ${fontFamily}`;
+    ctx.fillText(cameraText, alignX, titleY);
+    
+    ctx.font = `400 ${metaSize}px ${fontFamily}`;
+    let yPos = titleY + verticalSpacing;
+    
+    if (this.actualFocalLength) {
+      const focalData = this.getDisplayFocalLength();
+      if (focalData) { ctx.fillText(focalData.display, alignX, yPos); yPos += verticalSpacing; }
+    }
+    if (this.exif.aperture) { ctx.fillText(`f/${this.exif.aperture}`, alignX, yPos); yPos += verticalSpacing; }
+    if (this.exif.shutter) {
+      ctx.fillText(this.exif.shutter < 1 ? `1/${Math.round(1 / this.exif.shutter)}s` : `${this.exif.shutter}s`, alignX, yPos);
+      yPos += verticalSpacing;
+    }
+    if (this.exif.iso) ctx.fillText(`ISO${this.exif.iso}`, alignX, yPos);
+  }
+
+  renderNoExifLayout(ctx, contentX, imgW, titleY, titleSize, fontFamily, cameraText, padding) {
+    ctx.fillStyle = this.textColorEl.value;
+    ctx.font = `400 ${titleSize}px ${fontFamily}`;
+    const shotOnWidth = ctx.measureText("Shot on ").width;
+    ctx.font = `700 ${titleSize}px ${fontFamily}`;
+    const cameraWidth = ctx.measureText(cameraText).width;
+    
+    if (this.textPosition === 'bottom-center') {
+      ctx.textAlign = "center";
+      const totalWidth = shotOnWidth + cameraWidth;
+      const maxWidth = imgW - padding * 2;
+      
+      if (totalWidth > maxWidth) {
+        const scaleFactor = maxWidth / totalWidth;
+        const adjustedTitleSize = titleSize * Math.min(scaleFactor, 1);
+        ctx.font = `400 ${adjustedTitleSize}px ${fontFamily}`;
+        const adjustedShotOnWidth = ctx.measureText("Shot on ").width;
+        ctx.font = `700 ${adjustedTitleSize}px ${fontFamily}`;
+        const startX = contentX + (imgW / 2) - ((adjustedShotOnWidth + ctx.measureText(cameraText).width) / 2);
+        
+        ctx.textAlign = "left";
+        ctx.font = `400 ${adjustedTitleSize}px ${fontFamily}`;
+        ctx.fillText("Shot on ", startX, titleY);
+        ctx.font = `700 ${adjustedTitleSize}px ${fontFamily}`;
+        ctx.fillText(cameraText, startX + adjustedShotOnWidth, titleY);
+      } else {
+        const startX = contentX + (imgW / 2) - (totalWidth / 2);
+        ctx.textAlign = "left";
+        ctx.font = `400 ${titleSize}px ${fontFamily}`;
+        ctx.fillText("Shot on ", startX, titleY);
+        ctx.font = `700 ${titleSize}px ${fontFamily}`;
+        ctx.fillText(cameraText, startX + shotOnWidth, titleY);
+      }
+    } else if (this.textPosition === 'bottom-left') {
+      ctx.textAlign = "left";
+      ctx.font = `400 ${titleSize}px ${fontFamily}`;
+      ctx.fillText("Shot on ", contentX + padding, titleY);
+      ctx.font = `700 ${titleSize}px ${fontFamily}`;
+      ctx.fillText(cameraText, contentX + padding + shotOnWidth, titleY);
+    } else if (this.textPosition === 'bottom-right') {
+      const maxTextX = contentX + imgW - padding;
+      ctx.textAlign = "right";
+      ctx.font = `700 ${titleSize}px ${fontFamily}`;
+      ctx.fillText(cameraText, maxTextX, titleY);
+      ctx.font = `400 ${titleSize}px ${fontFamily}`;
+      ctx.fillText("Shot on ", maxTextX - cameraWidth, titleY);
+    }
+  }
+
+  download() {
+    this.render(this.exportCtx, this.exportCanvas, false);
+    const a = document.createElement("a");
+    const mode = this.instagramMode ? "instagram-" : "exif-border-";
+    const sensorMode = this.sensorMode !== 'fullframe' ? `${this.sensorMode}-` : '';
+    const filterMode = this.currentFilter !== 'none' ? `${this.currentFilter}-` : '';
+    a.download = `${filterMode}${sensorMode}${mode}${new Date().getTime()}.jpg`;
+    a.href = this.exportCanvas.toDataURL("image/jpeg", 0.98);
+    a.click();
+  }
+
+  initServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(console.log);
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.app = new EXIFBorderApp();
+});
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  setTimeout(() => {
+    const installBtn = document.createElement('button');
+    installBtn.textContent = '📱 Install App';
+    installBtn.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    `;
+    installBtn.onclick = () => e.prompt();
+    document.body.appendChild(installBtn);
+    setTimeout(() => installBtn.remove(), 10000);
+  }, 3000);
+});
+</script>
+</body>
+</html>
